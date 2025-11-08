@@ -1,89 +1,56 @@
-# E-commerce Database Project
+# Oficina (Oficina DB)
 
-Este projeto consiste em um modelo de banco de dados para um sistema de e-commerce, desenvolvido como parte do curso de banco de dados.
+Este repositório contém um modelo relacional e o script SQL para uma oficina mecânica. O objetivo é fornecer um esquema consistente (PF/PJ, veículos, mecânicos, ordens de serviço, serviços, peças, pagamentos e entregas), dados de teste e consultas exemplares para demonstração e avaliação.
 
-## Estrutura do Banco de Dados
+## O que há aqui
 
-O banco de dados foi projetado para suportar as seguintes funcionalidades principais:
+- `mm.session.sql`: script SQL que cria o banco `oficina_db`, define o esquema relacional, popula dados de teste e contém consultas complexas de exemplo.
 
-### 1. Gestão de Clientes (PF e PJ)
-- Suporte para pessoas físicas e jurídicas
-- Separação clara entre os tipos de cliente
-- Dados específicos para cada tipo de cliente
+## Entidades principais
 
-### 2. Sistema de Pedidos
-- Gerenciamento completo do ciclo de vida do pedido
-- Suporte a múltiplos itens por pedido
-- Cálculo de valores e quantidades
+- client (PF/PJ)
+- vehicle
+- mechanic
+- service_type
+- part
+- supplier
+- work_order (ordem de serviço)
+- work_order_service
+- work_order_part
+- payment_method
+- payment
+- delivery
 
-### 3. Pagamentos
-- Múltiplas formas de pagamento por pedido
-- Controle de status de pagamento
-- Histórico de transações
+## Como executar
 
-### 4. Sistema de Entrega
-- Rastreamento de entregas
-- Códigos de rastreio únicos
-- Status de entrega atualizado
-- Datas estimadas e reais de entrega
+1. No MySQL/MariaDB, execute o script para criar o banco e inserir dados:
 
-### 5. Gestão de Estoque
-- Controle de localização de produtos
-- Gestão de quantidade disponível
-- Múltiplos locais de armazenamento
-
-### 6. Fornecedores e Vendedores
-- Cadastro de fornecedores
-- Gestão de vendedores (marketplace)
-- Relação produto-fornecedor
-- Relação produto-vendedor
-
-## Principais Consultas Implementadas
-
-1. **Análise de Pedidos**
-   - Listagem completa com métodos de pagamento
-   - Status de entrega
-   - Documentos dos clientes
-
-2. **Análise de Vendas**
-   - Total de vendas por tipo de cliente
-   - Acompanhamento de status de entregas
-   - Performance de vendedores
-
-## Como Usar
-
-1. Execute o script SQL principal para criar o banco de dados:
-```sql
+```bash
 mysql -u seu_usuario -p < mm.session.sql
 ```
 
-2. O banco de dados será criado com:
-   - Todas as tabelas necessárias
-   - Dados de exemplo
-   - Consultas de exemplo
+2. Após execução, use o cliente MySQL para rodar as consultas presentes no final do arquivo `mm.session.sql`.
 
-## Modelo de Dados
+## Consultas de destaque (implementadas no script)
 
-### Principais Entidades:
-- Cliente (PF/PJ)
-- Produto
-- Pedido
-- Pagamento
-- Entrega
-- Estoque
-- Fornecedor
-- Vendedor
+- Recuperações simples com SELECT
+- Filtros com WHERE
+- Atributos derivados (subtotal, impostos)
+- Ordenação com ORDER BY (ex.: mecânicos por receita)
+- Filtros em grupos com HAVING (ex.: clientes com gasto médio acima de X)
+- Junções complexas com agregações e GROUP_CONCAT para resumos
 
-### Relacionamentos:
-- Cliente -> Pedidos (1:N)
-- Pedido -> Produtos (N:M)
-- Pedido -> Pagamentos (1:N)
-- Pedido -> Entrega (1:1)
-- Produto -> Estoque (N:M)
-- Produto -> Fornecedor (N:M)
-- Produto -> Vendedor (N:M)
+## Notas de modelagem
 
-## Tecnologias Utilizadas
+- Clientes PF e PJ estão modelados com uma tabela base `client` e duas tabelas específicas (`client_pf`, `client_pj`). Um cliente é um ou outro.
+- Pagamentos permitem múltiplas formas por ordem (tabela `payment` + `payment_method`).
+- Entrega/retirada do veículo possui status e, quando aplicável, código de rastreio (tabela `delivery`).
 
-- MySQL/MariaDB
-- SQL ANSI Standard
+## Próximos passos sugeridos
+
+- Adicionar constraints mais ricas (triggers para atualizar `final_total` automaticamente).
+- Criar views para relatórios frequentes (faturamento mensal, peças mais usadas).
+- Adicionar testes automatizados (scripts SQL ou integração com um framework de testes).
+
+---
+Feito por: projeto de oficina — script e consultas no `mm.session.sql`.

@@ -1,253 +1,327 @@
-USE ecommerce_db;
 
--- Modificação da tabela de clientes para incluir discriminador PF/PJ
-CREATE TABLE client (
-    idClient INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(50) NOT NULL,
-    address VARCHAR(50),
-    client_type ENUM('PF', 'PJ') NOT NULL,
-    active BOOLEAN DEFAULT TRUE
-);
+    -- Oficina: esquema relacional lógico implementado e dados de teste
+    DROP DATABASE IF EXISTS oficina_db;
+    CREATE DATABASE oficina_db;
+    USE oficina_db;
 
--- Tabela específica para Pessoa Física
-CREATE TABLE client_pf (
-    idClientPF INT PRIMARY KEY,
-    cpf CHAR(11) NOT NULL,
-    birthDate DATE,
-    CONSTRAINT unique_cpf_client UNIQUE (cpf),
-    FOREIGN KEY (idClientPF) REFERENCES client(idClient)
-);
+    -- Tabela de clientes (base)
+    CREATE TABLE client (
+        idClient INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20),
+        email VARCHAR(100),
+        address VARCHAR(255),
+        client_type ENUM('PF','PJ') NOT NULL,
+        active BOOLEAN DEFAULT TRUE
+    );
 
--- Tabela específica para Pessoa Jurídica
-CREATE TABLE client_pj (
-    idClientPJ INT PRIMARY KEY,
-    cnpj CHAR(14) NOT NULL,
-    socialName VARCHAR(50) NOT NULL,
-    businessName VARCHAR(50),
-    CONSTRAINT unique_cnpj_client UNIQUE (cnpj),
-    FOREIGN KEY (idClientPJ) REFERENCES client(idClient)
-);
+    -- Dados específicos para PF
+    CREATE TABLE client_pf (
+        idClientPF INT PRIMARY KEY,
+        cpf CHAR(11) NOT NULL UNIQUE,
+        birth_date DATE,
+        FOREIGN KEY (idClientPF) REFERENCES client(idClient) ON DELETE CASCADE
+    );
 
--- Tabela de produtos
-CREATE TABLE product (
-    idProduct INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(30) NOT NULL,
-    classification_key BOOLEAN DEFAULT FALSE,
-    category ENUM('eletronicos', 'moveis', 'utilidades domesticas', 'esporte', 'outros') DEFAULT 'outros',
-    avaliacao FLOAT DEFAULT 0,
-    size VARCHAR(10)
-);
+    -- Dados específicos para PJ
+    CREATE TABLE client_pj (
+        idClientPJ INT PRIMARY KEY,
+        cnpj CHAR(14) NOT NULL UNIQUE,
+        company_name VARCHAR(150) NOT NULL,
+        contact_person VARCHAR(100),
+        FOREIGN KEY (idClientPJ) REFERENCES client(idClient) ON DELETE CASCADE
+    );
 
--- Tabela de métodos de pagamento disponíveis
-CREATE TABLE payment_method (
-    idPaymentMethod INT PRIMARY KEY AUTO_INCREMENT,
-    method_name VARCHAR(50) NOT NULL,
-    description VARCHAR(100),
-    active BOOLEAN DEFAULT TRUE
-);
+    -- Veículos dos clientes
+    CREATE TABLE vehicle (
+        idVehicle INT PRIMARY KEY AUTO_INCREMENT,
+        idClient INT NOT NULL,
+        plate VARCHAR(20) NOT NULL UNIQUE,
+        vin VARCHAR(25) UNIQUE,
+        make VARCHAR(50),
+        model VARCHAR(50),
+        year INT,
+        FOREIGN KEY (idClient) REFERENCES client(idClient) ON DELETE CASCADE
+    );
 
--- Tabela de pagamentos (relacionamento N:M entre pedido e método de pagamento)
-CREATE TABLE payment (
-    idPayment INT AUTO_INCREMENT PRIMARY KEY,
-    idOrder INT NOT NULL,
-    idPaymentMethod INT NOT NULL,
-    payment_value FLOAT NOT NULL,
-    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    payment_status ENUM('pendente', 'aprovado', 'recusado', 'estornado') DEFAULT 'pendente',
-    FOREIGN KEY (idPaymentMethod) REFERENCES payment_method(idPaymentMethod)
-);
+    -- Mecânicos
+    CREATE TABLE mechanic (
+        idMechanic INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(100) NOT NULL,
+        specialization VARCHAR(100),
+        hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 50.00
+    );
 
--- Tabela de pedidos
-CREATE TABLE `order` (
-    idOrder INT PRIMARY KEY AUTO_INCREMENT,
-    orderDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-    orderStatus ENUM('pendente', 'processando', 'enviado', 'entregue', 'cancelado') DEFAULT 'pendente',
-    orderDescription VARCHAR(100),
-    sendValue FLOAT DEFAULT 0,
-    totalValue FLOAT DEFAULT 0,
-    idClient INT,
-    FOREIGN KEY (idClient) REFERENCES client(idClient)
-);
+    -- Tipos de serviço oferecidos
+    CREATE TABLE service_type (
+        idServiceType INT PRIMARY KEY AUTO_INCREMENT,
+        description VARCHAR(200) NOT NULL,
+        base_price DECIMAL(10,2) NOT NULL,
+        est_hours DECIMAL(5,2) DEFAULT 1.0
+    );
 
--- Tabela de entrega com status e rastreio
-CREATE TABLE delivery (
-    idDelivery INT PRIMARY KEY AUTO_INCREMENT,
-    idOrder INT UNIQUE,
-    tracking_code VARCHAR(50) UNIQUE,
-    delivery_status ENUM('aguardando_envio', 'em_transito', 'entregue', 'devolvido') DEFAULT 'aguardando_envio',
-    estimated_delivery DATE,
-    actual_delivery DATETIME,
-    shipping_company VARCHAR(50),
-    FOREIGN KEY (idOrder) REFERENCES `order`(idOrder)
-);
+    -- Peças e estoque
+    CREATE TABLE part (
+        idPart INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(150) NOT NULL,
+        sku VARCHAR(50) UNIQUE,
+        cost_price DECIMAL(10,2) NOT NULL,
+        sale_price DECIMAL(10,2) NOT NULL,
+        stock_qty INT DEFAULT 0
+    );
 
--- Tabela de estoque
-CREATE TABLE stock (
-    idStock INT PRIMARY KEY AUTO_INCREMENT,
-    location VARCHAR(30) NOT NULL,
-    quantity INT DEFAULT 0
-);
+    -- Fornecedores
+    CREATE TABLE supplier (
+        idSupplier INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(150) NOT NULL,
+        cnpj CHAR(14) UNIQUE,
+        contact VARCHAR(100)
+    );
 
--- Tabela de fornecedores
-CREATE TABLE supplier (
-    idSupplier INT PRIMARY KEY AUTO_INCREMENT,
-    socialName VARCHAR(50) NOT NULL,
-    cnpj CHAR(14) NOT NULL,
-    contact VARCHAR(30),
-    CONSTRAINT unique_cnpj_supplier UNIQUE (cnpj)
-);
+    -- Relacionamento peça-fornecedor
+    CREATE TABLE part_supplier (
+        idPart INT NOT NULL,
+        idSupplier INT NOT NULL,
+        supply_price DECIMAL(10,2) NOT NULL,
+        PRIMARY KEY (idPart, idSupplier),
+        FOREIGN KEY (idPart) REFERENCES part(idPart),
+        FOREIGN KEY (idSupplier) REFERENCES supplier(idSupplier)
+    );
 
--- Tabela de vendedores
-CREATE TABLE seller (
-    idSeller INT PRIMARY KEY AUTO_INCREMENT,
-    socialName VARCHAR(50) NOT NULL,
-    abstractName VARCHAR(30),
-    cnpj CHAR(14),
-    cpf CHAR(11),
-    location VARCHAR(50),
-    contact VARCHAR(30),
-    CONSTRAINT unique_cnpj_seller UNIQUE (cnpj),
-    CONSTRAINT unique_cpf_seller UNIQUE (cpf)
-);
+    -- Ordem de serviço (work order)
+    CREATE TABLE work_order (
+        idWorkOrder INT PRIMARY KEY AUTO_INCREMENT,
+        idClient INT NOT NULL,
+        idVehicle INT NOT NULL,
+        reported_problem TEXT,
+        idMechanic INT, -- responsável principal
+        status ENUM('aberto','em_andamento','aguardando_pecas','concluido','faturado','entregue') DEFAULT 'aberto',
+        open_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        close_date DATETIME,
+        estimated_total DECIMAL(12,2) DEFAULT 0,
+        final_total DECIMAL(12,2) DEFAULT 0,
+        FOREIGN KEY (idClient) REFERENCES client(idClient),
+        FOREIGN KEY (idVehicle) REFERENCES vehicle(idVehicle),
+        FOREIGN KEY (idMechanic) REFERENCES mechanic(idMechanic)
+    );
 
--- Relação produto-vendedor
-CREATE TABLE product_seller (
-    idProductSeller INT AUTO_INCREMENT PRIMARY KEY,
-    idProduct INT NOT NULL,
-    idSeller INT NOT NULL,
-    quantity INT DEFAULT 1,
-    FOREIGN KEY (idProduct) REFERENCES product(idProduct),
-    FOREIGN KEY (idSeller) REFERENCES seller(idSeller)
-);
-Create Table supplier_product (
-    idSupplierProduct INT AUTO_INCREMENT PRIMARY KEY,
-    idSupplier INT NOT NULL,
-    idProduct INT NOT NULL,
-    supplyPrice FLOAT NOT NULL,
-    FOREIGN KEY (idSupplier) REFERENCES supplier(idSupplier),
-    FOREIGN KEY (idProduct) REFERENCES product(idProduct)
-);
+    -- Serviços realizados na ordem
+    CREATE TABLE work_order_service (
+        idWorkOrder INT NOT NULL,
+        idServiceType INT NOT NULL,
+        quantity INT DEFAULT 1,
+        unit_price DECIMAL(10,2) NOT NULL,
+        PRIMARY KEY (idWorkOrder, idServiceType),
+        FOREIGN KEY (idWorkOrder) REFERENCES work_order(idWorkOrder) ON DELETE CASCADE,
+        FOREIGN KEY (idServiceType) REFERENCES service_type(idServiceType)
+    );
 
--- Relação produto-pedido
-CREATE TABLE product_order (
-    idProduct INT NOT NULL,
-    idOrder INT NOT NULL,
-    quantity INT DEFAULT 1,
-    status ENUM('Disponivel', 'Indisponivel') DEFAULT 'Disponivel',
-    PRIMARY KEY (idProduct, idOrder),
-    FOREIGN KEY (idProduct) REFERENCES product(idProduct),
-    FOREIGN KEY (idOrder) REFERENCES `order`(idOrder)
-);
+    -- Peças utilizadas na ordem
+    CREATE TABLE work_order_part (
+        idWorkOrder INT NOT NULL,
+        idPart INT NOT NULL,
+        quantity INT NOT NULL,
+        unit_price DECIMAL(10,2) NOT NULL,
+        PRIMARY KEY (idWorkOrder, idPart),
+        FOREIGN KEY (idWorkOrder) REFERENCES work_order(idWorkOrder) ON DELETE CASCADE,
+        FOREIGN KEY (idPart) REFERENCES part(idPart)
+    );
 
--- Localização de armazenamento
-CREATE TABLE storageLocation (
-    id_product INT NOT NULL,
-    id_stock INT NOT NULL,
-    location VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id_product, id_stock),
-    FOREIGN KEY (id_product) REFERENCES product(idProduct),
-    FOREIGN KEY (id_stock) REFERENCES stock(idStock)
-);
--- Inserir métodos de pagamento
-INSERT INTO payment_method (method_name, description) VALUES
-('Cartão de Crédito', 'Pagamento com cartão de crédito'),
-('Cartão de Débito', 'Pagamento com cartão de débito'),
-('PIX', 'Pagamento instantâneo via PIX'),
-('Boleto', 'Pagamento via boleto bancário');
+    -- Métodos de pagamento
+    CREATE TABLE payment_method (
+        idPaymentMethod INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(50) NOT NULL,
+        description VARCHAR(200)
+    );
 
--- Inserir clientes (PF e PJ)
-INSERT INTO client (name, address, client_type) VALUES
-('Maria Silva', 'Rua A, 123', 'PF'),
-('João Souza', 'Rua B, 456', 'PF'),
-('Tech Solutions LTDA', 'Av. Principal, 789', 'PJ');
+    -- Pagamentos (uma ordem pode ter vários pagamentos)
+    CREATE TABLE payment (
+        idPayment INT PRIMARY KEY AUTO_INCREMENT,
+        idWorkOrder INT NOT NULL,
+        idPaymentMethod INT NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status ENUM('pendente','aprovado','recusado','estornado') DEFAULT 'pendente',
+        FOREIGN KEY (idWorkOrder) REFERENCES work_order(idWorkOrder),
+        FOREIGN KEY (idPaymentMethod) REFERENCES payment_method(idPaymentMethod)
+    );
 
--- Inserir dados de PF
-INSERT INTO client_pf (idClientPF, cpf, birthDate) VALUES
-(1, '12345678901', '1990-05-15'),
-(2, '23456789012', '1985-08-22');
+    -- Entrega do veículo (ou envio de peças) com rastreio
+    CREATE TABLE delivery (
+        idDelivery INT PRIMARY KEY AUTO_INCREMENT,
+        idWorkOrder INT UNIQUE,
+        tracking_code VARCHAR(50) UNIQUE,
+        delivery_status ENUM('aguardando','em_transito','entregue','devolvido') DEFAULT 'aguardando',
+        estimated_date DATE,
+        actual_date DATETIME,
+        carrier VARCHAR(100),
+        FOREIGN KEY (idWorkOrder) REFERENCES work_order(idWorkOrder)
+    );
 
--- Inserir dados de PJ
-INSERT INTO client_pj (idClientPJ, cnpj, socialName, businessName) VALUES
-(3, '12345678000199', 'Tech Solutions LTDA', 'TechSol'); 
-INSERT INTO product (name, classification_key, category, avaliacao, size) VALUES
-('Smartphone', TRUE, 'eletronicos', 4.5, 'M'),
-('Sofa', FALSE, 'moveis', 4.0, 'L'),
-('Bola de Futebol', FALSE, 'esporte', 4.8, 'M');
-INSERT INTO stock (location, quantity) VALUES
-('Armazém Central', 100),
-('Loja Norte', 50);
-INSERT INTO supplier (socialName, cnpj, contact) VALUES
-('Fornecedor A', '12345678000199', 'contato@fornecedora.com'),
-('Fornecedor B', '98765432000188', 'contato@fornecedoraB.com'); 
-INSERT INTO seller (socialName, abstractName, cnpj, cpf, location, contact) VALUES
-('Vendedor X', 'VendX', '11223344000155', NULL, 'Cidade X', 'contato@vendedoX.com'),
-('Vendedor Y', 'VendY', NULL, '99887766554', 'Cidade Y', 'contato@vendedoY.com');
--- Inserir pedidos com suas entregas e pagamentos
-INSERT INTO `order` (orderDate, orderStatus, orderDescription, sendValue, totalValue, idClient) VALUES
-('2024-01-15 10:00:00', 'processando', 'Pedido de Smartphone', 20.0, 1520.0, 1),
-('2024-01-16 14:30:00', 'enviado', 'Pedido de Sofá', 50.0, 2050.0, 3);
+    -- Índices úteis
+    CREATE INDEX idx_workorder_client ON work_order(idClient);
+    CREATE INDEX idx_vehicle_plate ON vehicle(plate);
 
-INSERT INTO delivery (idOrder, tracking_code, delivery_status, estimated_delivery) VALUES
-(1, 'BR123456789', 'em_transito', '2024-01-20'),
-(2, 'BR987654321', 'aguardando_envio', '2024-01-25');
+    -- ==========================
+    -- Dados de exemplo (populate)
+    -- ==========================
 
-INSERT INTO payment (idOrder, idPaymentMethod, payment_value, payment_status) VALUES
-(1, 1, 1520.0, 'aprovado'),
-(2, 3, 2050.0, 'aprovado');
-INSERT INTO product_seller (idProduct, idSeller, quantity) VALUES
-(1, 1, 10),
-(2, 2, 5);
-INSERT INTO supplier_product (idSupplier, idProduct, supplyPrice) VALUES
-(1, 1, 250.0),
-(2, 2, 800.0);
-INSERT INTO product_order (idProduct, idOrder, quantity, status) VALUES
-(1, 1, 1, 'Disponivel'),
-(2, 2, 2, 'Disponivel');    
-INSERT INTO storageLocation (id_product, id_stock, location) VALUES
-(1, 1, 'Prateleira A1'),
-(2, 2, 'Prateleira B2');
+    -- Clientes
+    INSERT INTO client (name, phone, email, address, client_type) VALUES
+    ('Carlos Pereira', '11999990000', 'carlos@example.com', 'Rua das Flores, 10', 'PF'),
+    ('AutoCorp LTDA', '1133333000', 'finance@autocorp.com', 'Av. Industria, 500', 'PJ'),
+    ('Mariana Silva', '21988880000', 'mariana@example.com', 'Rua das Oliveiras, 45', 'PF');
 
--- Exemplos de consultas
+    INSERT INTO client_pf (idClientPF, cpf, birth_date) VALUES
+    (1, '12345678901', '1980-04-10'),
+    (3, '98765432100', '1992-11-07');
 
--- 1. Listar todos os pedidos com seus métodos de pagamento
-SELECT 
-    o.idOrder,
-    c.name as cliente,
-    CASE 
-        WHEN c.client_type = 'PF' THEN cpf.cpf
-        ELSE pj.cnpj
-    END as documento,
-    o.totalValue,
-    GROUP_CONCAT(pm.method_name) as metodos_pagamento,
-    d.tracking_code,
-    d.delivery_status
-FROM `order` o
-JOIN client c ON o.idClient = c.idClient
-LEFT JOIN client_pf cpf ON c.idClient = cpf.idClientPF
-LEFT JOIN client_pj pj ON c.idClient = pj.idClientPJ
-JOIN payment p ON o.idOrder = p.idOrder
-JOIN payment_method pm ON p.idPaymentMethod = pm.idPaymentMethod
-LEFT JOIN delivery d ON o.idOrder = d.idOrder
-GROUP BY o.idOrder;
+    INSERT INTO client_pj (idClientPJ, cnpj, company_name, contact_person) VALUES
+    (2, '12345678000199', 'AutoCorp LTDA', 'Paulo Gomes');
 
--- 2. Valor total de vendas por tipo de cliente
-SELECT 
-    c.client_type,
-    COUNT(o.idOrder) as total_pedidos,
-    SUM(o.totalValue) as valor_total
-FROM client c
-LEFT JOIN `order` o ON c.idClient = o.idClient
-GROUP BY c.client_type;
+    -- Veículos
+    INSERT INTO vehicle (idClient, plate, vin, make, model, year) VALUES
+    (1, 'ABC-1234', '1HGCM82633A004352', 'Honda', 'Civic', 2010),
+    (3, 'XYZ-9876', '2T1BR32E54C123456', 'Toyota', 'Corolla', 2015),
+    (2, 'FGR-5566', '3FAHP0HA7AR123456', 'Ford', 'Focus', 2018);
 
--- 3. Status de entrega por pedido
-SELECT 
-    o.idOrder,
-    c.name as cliente,
-    o.orderStatus,
-    d.tracking_code,
-    d.delivery_status,
-    d.estimated_delivery
-FROM `order` o
-JOIN client c ON o.idClient = c.idClient
-LEFT JOIN delivery d ON o.idOrder = d.idOrder
-ORDER BY o.orderDate DESC;
+    -- Mecânicos
+    INSERT INTO mechanic (name, specialization, hourly_rate) VALUES
+    ('João Mecânico', 'Injeção Eletrônica', 80.00),
+    ('Luciana Reparos', 'Suspensão e Freios', 70.00);
+
+    -- Tipos de serviços
+    INSERT INTO service_type (description, base_price, est_hours) VALUES
+    ('Troca de óleo', 120.00, 1.0),
+    ('Alinhamento e balanceamento', 180.00, 1.5),
+    ('Substituição pastilha de freio', 200.00, 2.0);
+
+    -- Peças
+    INSERT INTO part (name, sku, cost_price, sale_price, stock_qty) VALUES
+    ('Óleo 5W30 4L', 'OLEO-5W30-4L', 30.00, 60.00, 20),
+    ('Pastilha de freio dianteira', 'PAST-FR-001', 40.00, 90.00, 10),
+    ('Filtro de óleo', 'FILT-OL-01', 10.00, 25.00, 30);
+
+    -- Fornecedores
+    INSERT INTO supplier (name, cnpj, contact) VALUES
+    ('Peças & Cia', '22233344000155', 'vendas@pecasecia.com'),
+    ('Lubrificantes SA', '33344455000166', 'contato@lubri.com');
+
+    INSERT INTO part_supplier (idPart, idSupplier, supply_price) VALUES
+    (1, 2, 28.00),
+    (2, 1, 38.00),
+    (3, 2, 9.00);
+
+    -- Métodos de pagamento
+    INSERT INTO payment_method (name, description) VALUES
+    ('Dinheiro', 'Pagamento em dinheiro'),
+    ('Cartão de Crédito', 'Parcelado'),
+    ('PIX', 'Pagamento instantâneo');
+
+    -- Ordens de serviço
+    INSERT INTO work_order (idClient, idVehicle, reported_problem, idMechanic, status, open_date, estimated_total) VALUES
+    (1, 1, 'Vibração ao frear', 2, 'em_andamento', '2024-01-10 09:30:00', 350.00),
+    (3, 2, 'Troca de óleo e filtro', 1, 'concluido', '2024-01-12 11:00:00', 200.00),
+    (2, 3, 'Revisão 20.000km', 1, 'aguardando_pecas', '2024-01-15 08:00:00', 800.00);
+
+    -- Serviços realizados
+    INSERT INTO work_order_service (idWorkOrder, idServiceType, quantity, unit_price) VALUES
+    (1, 3, 1, 200.00), -- pastilha
+    (1, 2, 1, 180.00), -- alinhamento
+    (2, 1, 1, 120.00), -- troca de óleo
+    (3, 1, 1, 120.00);
+
+    -- Peças usadas
+    INSERT INTO work_order_part (idWorkOrder, idPart, quantity, unit_price) VALUES
+    (1, 2, 2, 90.00), -- pastilha *2
+    (2, 1, 1, 60.00), -- óleo
+    (2, 3, 1, 25.00); -- filtro
+
+    -- Atualiza estoque conforme utilização (exemplo simples)
+    UPDATE part SET stock_qty = stock_qty - 2 WHERE idPart = 2;
+    UPDATE part SET stock_qty = stock_qty - 1 WHERE idPart IN (1,3);
+
+    -- Pagamentos
+    INSERT INTO payment (idWorkOrder, idPaymentMethod, amount, status) VALUES
+    (1, 1, 200.00, 'aprovado'),
+    (1, 3, 160.00, 'aprovado'),
+    (2, 2, 145.00, 'aprovado');
+
+    -- Entregas (ex: veículo entregue ao cliente)
+    INSERT INTO delivery (idWorkOrder, tracking_code, delivery_status, estimated_date) VALUES
+    (2, 'OF123BR0001', 'entregue', '2024-01-14'),
+    (3, NULL, 'aguardando', NULL);
+
+    -- ==========================
+    -- Consultas de exemplo (mais complexas)
+    -- 1) Recuperação simples - listar clientes
+    SELECT idClient, name, phone, email, client_type FROM client;
+
+    -- 2) WHERE - veículos por placa parcial
+    SELECT v.idVehicle, v.plate, v.make, v.model, c.name as owner
+    FROM vehicle v
+    JOIN client c ON v.idClient = c.idClient
+    WHERE v.plate LIKE 'A%';
+
+    -- 3) Atributos derivados - calcular subtotal de cada ordem (serviços + peças)
+    SELECT 
+        w.idWorkOrder,
+        c.name,
+        COALESCE(SUM(wos.quantity * wos.unit_price),0) AS services_total,
+        COALESCE(SUM(wop.quantity * wop.unit_price),0) AS parts_total,
+        (COALESCE(SUM(wos.quantity * wos.unit_price),0) + COALESCE(SUM(wop.quantity * wop.unit_price),0)) AS order_subtotal,
+        ((COALESCE(SUM(wos.quantity * wos.unit_price),0) + COALESCE(SUM(wop.quantity * wop.unit_price),0)) * 0.12) AS tax_12pct
+    FROM work_order w
+    JOIN client c ON w.idClient = c.idClient
+    LEFT JOIN work_order_service wos ON w.idWorkOrder = wos.idWorkOrder
+    LEFT JOIN work_order_part wop ON w.idWorkOrder = wop.idWorkOrder
+    GROUP BY w.idWorkOrder, c.name;
+
+    -- 4) ORDER BY - mecânicos por receita (serviços cobrados)
+    SELECT m.idMechanic, m.name, SUM(wos.unit_price * wos.quantity) AS revenue
+    FROM mechanic m
+    JOIN work_order w ON w.idMechanic = m.idMechanic
+    JOIN work_order_service wos ON w.idWorkOrder = wos.idWorkOrder
+    GROUP BY m.idMechanic, m.name
+    ORDER BY revenue DESC;
+
+    -- 5) HAVING - clientes com gasto médio por ordem acima de 250
+    SELECT c.idClient, c.name, COUNT(w.idWorkOrder) AS orders_cnt, AVG(
+        (SELECT COALESCE(SUM(wos2.quantity * wos2.unit_price),0) + COALESCE(SUM(wop2.quantity * wop2.unit_price),0)
+         FROM work_order_service wos2 LEFT JOIN work_order_part wop2 ON wos2.idWorkOrder = wop2.idWorkOrder
+         WHERE wos2.idWorkOrder = w.idWorkOrder)
+    ) AS avg_spent
+    FROM client c
+    JOIN work_order w ON c.idClient = w.idClient
+    GROUP BY c.idClient, c.name
+    HAVING AVG(
+        (SELECT COALESCE(SUM(wos2.quantity * wos2.unit_price),0) + COALESCE(SUM(wop2.quantity * wop2.unit_price),0)
+         FROM work_order_service wos2 LEFT JOIN work_order_part wop2 ON wos2.idWorkOrder = wop2.idWorkOrder
+         WHERE wos2.idWorkOrder = w.idWorkOrder)
+    ) > 250;
+
+    -- 6) Junções complexas - relatório detalhado de ordens
+    SELECT
+        w.idWorkOrder,
+        c.name AS client,
+        CONCAT(v.make,' ',v.model,' (',v.plate,')') AS vehicle,
+        m.name AS mechanic,
+        w.status,
+        w.open_date,
+        COALESCE(SUM(wos.quantity * wos.unit_price),0) AS services_total,
+        COALESCE(SUM(wop.quantity * wop.unit_price),0) AS parts_total,
+        (COALESCE(SUM(wos.quantity * wos.unit_price),0) + COALESCE(SUM(wop.quantity * wop.unit_price),0)) AS subtotal,
+        GROUP_CONCAT(DISTINCT pm.name) AS payment_methods,
+        d.tracking_code,
+        d.delivery_status
+    FROM work_order w
+    LEFT JOIN client c ON w.idClient = c.idClient
+    LEFT JOIN vehicle v ON w.idVehicle = v.idVehicle
+    LEFT JOIN mechanic m ON w.idMechanic = m.idMechanic
+    LEFT JOIN work_order_service wos ON w.idWorkOrder = wos.idWorkOrder
+    LEFT JOIN work_order_part wop ON w.idWorkOrder = wop.idWorkOrder
+    LEFT JOIN payment p ON w.idWorkOrder = p.idWorkOrder
+    LEFT JOIN payment_method pm ON p.idPaymentMethod = pm.idPaymentMethod
+    LEFT JOIN delivery d ON w.idWorkOrder = d.idWorkOrder
+    GROUP BY w.idWorkOrder, c.name, v.make, v.model, v.plate, m.name, w.status, w.open_date, d.tracking_code, d.delivery_status
+    ORDER BY w.open_date DESC;
